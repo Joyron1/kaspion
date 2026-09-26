@@ -62,9 +62,9 @@ export const together: LevelDef = {
       stages: [
         {
           intro: 'stage1', icon: 'star',
-          goal: () => g.cfg.stars ?? 12, got: () => Math.min(stars.caught, g.cfg.stars ?? 12),
-          update: dt => stars.update(dt, hero, true, stars.caught + stars.list.length < (g.cfg.stars ?? 12) + 3),
-          done: () => stars.caught >= (g.cfg.stars ?? 12),
+          goal: () => g.cfg.stars ?? 14, got: () => Math.min(stars.caught, g.cfg.stars ?? 14),
+          update: dt => stars.update(dt, hero, true, stars.caught + stars.list.length < (g.cfg.stars ?? 14) + 3),
+          done: () => stars.caught >= (g.cfg.stars ?? 14),
           targets: () => stars.targets(),
         },
         {
@@ -72,7 +72,7 @@ export const together: LevelDef = {
           enter: () => {
             stars.list.length = 0;
             whaleFree = true;
-            const n = g.cfg.hoops ?? 12;
+            const n = g.cfg.hoops ?? 14;
             const a = { x0: 110, x1: g.W - 110, y0: g.top + 60, y1: g.floor - 90 };
             for (let i = 0; i < n; i++) {
               rings.push({ x: i % 2 ? a.x0 + rand(0, 60) : a.x1 - rand(0, 60), y: a.y0 + ((i * 0.37 + 0.15) % 1) * (a.y1 - a.y0), done: false });

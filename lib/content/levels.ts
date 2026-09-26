@@ -273,7 +273,7 @@ export const LEVELS: LevelMeta[] = [
       win: 'הדג הקטן והלוויתן הגדול, החברים הכי טובים בים!',
       'toast.photo': 'צ׳יז!',
     },
-    config: { stars: 12, hoops: 12, friends: 8 },
+    config: { stars: 14, hoops: 14, friends: 8 },
     knobs: {
       stars: { label: 'כוכבים לתפוס', min: 4, max: 20 },
       hoops: { label: 'טבעות במרוץ', min: 4, max: 20 },

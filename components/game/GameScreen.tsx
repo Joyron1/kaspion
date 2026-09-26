@@ -126,7 +126,7 @@ export default function GameScreen({ levelId, index, total, nextId, content }: P
                   ? Array.from({ length: hud.goal }, (_, i) => (
                     <span key={i} className={`${s.item} ${i < hud.got ? s.itemOn : ''}`}><ItemIcon name={hud.icon!} /></span>
                   ))
-                  : <span className={s.count}><span className={s.item + ' ' + s.itemOn}><ItemIcon name={hud.icon} /></span>{hud.got} / {hud.goal}</span>}
+                  : <span className={s.count}><span className={s.item + ' ' + s.itemOn}><ItemIcon name={hud.icon} /></span><span dir="ltr">{hud.got} / {hud.goal}</span></span>}
               </div>
             )}
             {hud.progress !== null && (
