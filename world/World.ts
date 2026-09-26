@@ -26,12 +26,16 @@ export interface WorldState {
 }
 
 export interface WorldHooks {
+  /** how many tasks each game has */
+  counts(): Record<GameKind, number>;
   say(key: string): Promise<void>;
   sfx(name: Parameters<Ctx['sfx']>[0]): void;
   onState(s: WorldState): void;
   onStationDone(index: number): void;
   estimate(key: string): number;
   bot: boolean;
+  /** light rendering for tests on software graphics (no bot) */
+  lite?: boolean;
 }
 
 const GAMES: Record<GameKind, (c: Ctx) => Game> = {
@@ -41,6 +45,17 @@ const GAMES: Record<GameKind, (c: Ctx) => Game> = {
 const GAP = 62;
 export const stationPos = (i: number) => new THREE.Vector3(Math.sin(i * 0.95) * 11, 0, -i * GAP);
 const HOME = new THREE.Vector3(4, 4, 46);
+
+/** The swim to station i: a gentle S through the valley, ending up in the station's corner. */
+function travelCurve(from: THREE.Vector3, i: number): THREE.CatmullRomCurve3 {
+  const to = stationPos(i).add(ARRIVE);
+  const mid = from.clone().lerp(to, 0.5).add(new THREE.Vector3((i % 2 ? 1 : -1) * 6, 1.8, 0));
+  const a = from.clone().lerp(mid, 0.5).add(new THREE.Vector3(0, 0.8, 0));
+  const b = mid.clone().lerp(to, 0.5).add(new THREE.Vector3(0, 0.6, 0));
+  return new THREE.CatmullRomCurve3([from, a, mid, b, to], false, 'centripetal');
+}
+/** where Kaspion arrives at a station (local): high on the left, clear of every game */
+const ARRIVE = new THREE.Vector3(-6, 5.8, 2);
 
 interface Buddy { c: Creature; role: 'baby' | 'mama' | 'papa'; off: THREE.Vector3; at: THREE.Vector3; ph: number }
 
@@ -59,6 +74,9 @@ export class World {
   private goalLook = new THREE.Vector3();
   private curve: THREE.CatmullRomCurve3 | null = null;
   private travelT = 0;
+  private curveLen = 1;
+  private route: THREE.Vector3[] = [];
+  private camDir = new THREE.Vector3(0, 0, -1);
   private travelDur = 10;
   private idle = 0;
   private lastGot = -1;
@@ -71,18 +89,28 @@ export class World {
   private locals: Creature[] = [];
   private localAt = -1;
   private schoolAngle = 0;
+  private schoolAway = 0;
   private state: WorldState = { phase: 'ready', station: 0, got: 0, goal: 0, page: null };
 
   constructor(canvas: HTMLCanvasElement, private hooks: WorldHooks) {
-    this.stage = new Stage(canvas, { lite: hooks.bot });
-    if (hooks.bot) { this.stage.maxDt = 0.1; this.stage.substeps = 8; }
+    const lite = hooks.bot || Boolean(hooks.lite);
+    this.stage = new Stage(canvas, { lite });
+    if (lite) { this.stage.maxDt = 0.1; this.stage.substeps = 8; }
     this.fx = new Fx(this.stage.scene);
     const len = STATIONS.length * GAP + 140;
     const flats = STATIONS.map((_, i) => { const p = stationPos(i); return { x: p.x, z: p.z, r: 14 }; });
     this.ocean = new Ocean(this.stage, { length: len, width: 150, flats });
     const h = (x: number, z: number) => this.ocean.height(x, z);
+    // every swim lane, so no plant stands between the camera and Kaspion on the way
+    const lane: THREE.Vector2[] = [];
+    STATIONS.forEach((_, i) => {
+      const from = i === 0 ? HOME.clone() : stationPos(i - 1).add(ARRIVE);
+      for (const p of travelCurve(from, i).getSpacedPoints(80)) lane.push(new THREE.Vector2(p.x, p.z));
+    });
+    const blocked = (x: number, z: number, r: number) => lane.some(p => (p.x - x) ** 2 + (p.y - z) ** 2 < r * r);
     STATIONS.forEach((s, i) => {
       const garden = new Garden(this.stage.scene, this.stage.lowPower);
+      garden.blocked = blocked;
       const p = stationPos(i);
       garden.plant(p.x, p.z, 14.5, 42, s.theme, 11 + i * 7, h);
       // along the way to the next station, leaving a lane to swim through
@@ -94,11 +122,14 @@ export class World {
       this.gardens.push(garden);
     });
     const home = new Garden(this.stage.scene, this.stage.lowPower);
+    home.blocked = blocked;
     home.plant(HOME.x, HOME.z - 6, 8, 34, 'coral', 5, h);
     home.finish();
     this.gardens.push(home);
 
     this.kaspion = makeKaspion();
+    // turn, then pitch the nose, then bank: so leaning into a curve looks right
+    this.kaspion.root.rotation.order = 'YZX';
     this.kaspion.root.position.copy(HOME);
     this.stage.scene.add(this.kaspion.root);
 
@@ -150,11 +181,9 @@ export class World {
   private travel() {
     const s = this.station();
     const from = this.kaspion.root.getWorldPosition(new THREE.Vector3());
-    const to = stationPos(this.index).add(new THREE.Vector3(0, 2.4, 3));
-    const mid = from.clone().lerp(to, 0.5).add(new THREE.Vector3((this.index % 2 ? 1 : -1) * 6, 3.5, 0));
-    const a = from.clone().lerp(mid, 0.5).add(new THREE.Vector3(0, 1.5, 0));
-    const b = mid.clone().lerp(to, 0.5).add(new THREE.Vector3(0, 1, 0));
-    this.curve = new THREE.CatmullRomCurve3([from, a, mid, b, to], false, 'centripetal');
+    this.curve = travelCurve(from, this.index);
+    this.curveLen = this.curve.getLength();
+    this.camDir.copy(this.curve.getTangentAt(0)).normalize();
     const key = `story.${s.page}`;
     this.travelDur = this.hooks.bot ? 2.5 : Math.max(11, this.hooks.estimate(key) + 3);
     this.travelT = 0;
@@ -183,6 +212,7 @@ export class World {
       group: g,
       kaspion: this.kaspion,
       level: s.level,
+      count: this.hooks.counts()[s.game] ?? 5,
       say: key => (this.hooks.bot ? Promise.resolve() : this.hooks.say(key)),
       sfx: n => this.hooks.sfx(n),
       praise: () => {
@@ -205,6 +235,9 @@ export class World {
     if (!this.hooks.bot) await this.hooks.say(`world.${s.id}.intro`);
     if (this.group !== g) return; // left meanwhile
     this.game = GAMES[s.game](ctx);
+    const spot = this.game.kaspionSpot;
+    const from = this.kaspion.root.position;
+    this.route = spot ? [new THREE.Vector3(Math.min(from.x, spot.x) - 3.5, Math.max(from.y, spot.y) + 1, spot.z)] : [];
     this.phase = 'play';
     this.idle = 0;
     this.lastGot = -1;
@@ -316,25 +349,37 @@ export class World {
     } else if (this.phase === 'travel' && this.curve) {
       this.travelT += dt;
       const u = Math.min(1, this.travelT / this.travelDur);
-      const e = u < 0.5 ? 2 * u * u : 1 - Math.pow(-2 * u + 2, 2) / 2;
+      // speed: speed up gently, cruise, slow down gently at the station
+      const A = 0.18, vmax = 1 / (1 - A);
+      let e = u < A ? 0.5 * vmax * u * u / A : u > 1 - A ? 1 - 0.5 * vmax * (1 - u) ** 2 / A : vmax * (u - A / 2);
+      // a small surge with every tail beat, the way fish really swim
+      const cruise = Math.min(1, u / A, (1 - u) / A);
+      e = THREE.MathUtils.clamp(e + Math.sin(t * 7) * 0.12 * cruise / this.curveLen, 0, 1);
       const p = this.curve.getPointAt(e);
-      const ahead = this.curve.getPointAt(Math.min(1, e + 0.02));
-      const dir = ahead.clone().sub(p);
-      if (dir.lengthSq() < 1e-6) dir.set(0, 0, -1);
-      dir.normalize();
+      const dir = this.curve.getTangentAt(e).normalize();
       k.root.position.copy(p);
+      // turn toward the way ahead, lean into the turn, nose up or down with the path
       const yaw = Math.atan2(-dir.z, dir.x);
       let diff = yaw - k.root.rotation.y;
       diff = Math.atan2(Math.sin(diff), Math.cos(diff));
-      k.root.rotation.y += diff * Math.min(1, dt * 5);
-      k.root.rotation.z = THREE.MathUtils.clamp(dir.y * 1.2, -0.5, 0.5);
-      k.swim = 0.4 + Math.sin(u * Math.PI) * 0.6;
-      // chase camera: behind and a little above, drifting to the side
-      const side = new THREE.Vector3(-dir.z, 0, dir.x).normalize();
-      this.goalPos.copy(p).addScaledVector(dir, -7.5).add(new THREE.Vector3(0, 2.6, 0)).addScaledVector(side, Math.sin(t * 0.3) * 2.5 + 1.5);
-      this.goalLook.copy(p).addScaledVector(dir, 3);
-      if (Math.random() < dt * 2) this.fx.bubbles(p.clone().addScaledVector(dir, 0.6), 2, 0.2);
-      if (u >= 1) { k.root.rotation.z = 0; void this.arrive(); }
+      const turn = diff * Math.min(1, dt * 4);
+      k.root.rotation.y += turn;
+      const bank = THREE.MathUtils.clamp(-(turn / Math.max(dt, 1e-3)) * 0.35, -0.55, 0.55);
+      k.root.rotation.x += (bank - k.root.rotation.x) * Math.min(1, dt * 3);
+      const pitch = THREE.MathUtils.clamp(Math.asin(THREE.MathUtils.clamp(dir.y, -1, 1)) * 0.8, -0.3, 0.3);
+      k.root.rotation.z += (pitch - k.root.rotation.z) * Math.min(1, dt * 3);
+      k.swim = 0.55 + 0.45 * cruise;
+      // third-person camera: right behind Kaspion and a little above, following his heading smoothly
+      this.camDir.lerp(dir, 1 - Math.exp(-dt * 2.2)).normalize();
+      const flat = new THREE.Vector3(this.camDir.x, this.camDir.y * 0.4, this.camDir.z).normalize();
+      // three-quarter view from behind: we see his side and eye, and where he is heading
+      const sideV = new THREE.Vector3(-flat.z, 0, flat.x).normalize();
+      // aim below him so he rides in the upper middle of the screen, above the story caption
+      this.goalPos.copy(p).addScaledVector(flat, -4.6).addScaledVector(sideV, 1.9).add(new THREE.Vector3(0, 0.9, 0));
+      this.goalLook.copy(p).addScaledVector(flat, 4.5).add(new THREE.Vector3(0, -1.9, 0));
+      // a few tiny bubbles from the gills, drifting up (not into the lens)
+      if (Math.random() < dt * 1.5) this.fx.add('bubble', p.clone().add(new THREE.Vector3(0, 0.35, 0)), { v: new THREE.Vector3(0, 1.4, 0), life: 1.4, size: 0.07 + Math.random() * 0.06, rise: 0.3 });
+      if (u >= 1) { k.root.rotation.z = 0; k.root.rotation.x = 0; void this.arrive(); }
     } else if (this.group) {
       const g = this.group.position;
       if (this.game) {
@@ -345,9 +390,11 @@ export class World {
         this.goalPos.copy(g).add(new THREE.Vector3(0, 4, 12.5));
         this.goalLook.copy(g).add(new THREE.Vector3(0, 2.6, 0));
       }
-      const spot = this.game?.kaspionSpot ?? (this.game ? null : new THREE.Vector3(0, 2.6, 2.5));
+      const spot = this.game?.kaspionSpot ?? (this.game ? null : ARRIVE);
       if (spot) {
-        if (swimTo(k, spot, dt, 6)) {
+        // go round the outside (up and to the side), never across the play area
+        if (this.route.length && swimTo(k, this.route[0], dt, 6)) this.route.shift();
+        if (!this.route.length && swimTo(k, spot, dt, 6)) {
           k.root.rotation.y += (-0.35 - k.root.rotation.y) * Math.min(1, dt * 3);
           k.root.rotation.z *= 0.9;
         }
@@ -378,7 +425,9 @@ export class World {
     for (const g of this.gardens) g.group.visible = g.center.distanceTo(this.camPos) < 105;
 
     // camera easing
-    const kk = 1 - Math.exp(-dt * (this.phase === 'travel' ? 2.2 : 1.6));
+    // during the swim the camera stays close behind (after a softer first second)
+    const stiff = this.phase === 'travel' ? (this.travelT < 1.2 ? 2.5 : 6) : 1.6;
+    const kk = 1 - Math.exp(-dt * stiff);
     this.camPos.lerp(this.goalPos, kk);
     this.camLook.lerp(this.goalLook, kk);
     this.stage.camera.position.copy(this.camPos);
@@ -422,7 +471,7 @@ export class World {
       else {
         // watch the game from behind the play area
         const g = stationPos(this.index);
-        target = g.clone().add(new THREE.Vector3(b.off.x * 1.4, 5 + b.off.y, -12 + b.off.z * 0.6));
+        target = g.clone().add(new THREE.Vector3(b.off.x * 1.4, 7 + b.off.y, -17 + b.off.z * 0.6));
       }
       target.y += Math.sin(t * 0.8 + b.ph) * 0.4;
       b.at.lerp(target, 1 - Math.exp(-dt * 0.9));
@@ -446,7 +495,10 @@ export class World {
       // the silver family swims round and round like one big fish
       this.schoolAngle += dt * 0.05;
       const a = t * 0.45 + n * 0.32;
-      c.root.position.set(p.x + Math.cos(a) * 16, 6 + Math.sin(a * 2 + n) * 0.6 + (n % 3) * 0.7, p.z - 6 + Math.sin(a) * 9);
+      // while a game is on, the family swims far behind so nothing crosses the play area
+      const away = this.game ? 1 : 0;
+      this.schoolAway += (away - this.schoolAway) * Math.min(1, dt * 0.5);
+      c.root.position.set(p.x + Math.cos(a) * 16, 6 + Math.sin(a * 2 + n) * 0.6 + (n % 3) * 0.7 + this.schoolAway * 4, p.z - 6 - this.schoolAway * 22 + Math.sin(a) * 9);
       c.root.rotation.y = -a - Math.PI / 2;
       c.swim = 0.8;
     } else if (c.kind === 'fish' || c.kind === 'seahorse' || c.kind === 'turtle') {

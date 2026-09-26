@@ -2,17 +2,19 @@
 
 import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { ContentBundle } from '@/lib/content/types';
+import type { ContentBundle, Line, LineDef } from '@/lib/content/types';
 import { STATIONS } from '@/lib/content/world';
 import { STORY_PAGES } from '@/lib/content/story';
 import { Narrator, estimateSeconds } from '@/game/engine/narrator';
 import { sfx, setSfxMuted, startAmbience, stopAmbience, unlockAudio } from '@/game/engine/sfx';
 import { markStationDone, resetWorld, useMuted, useWorldProgress, writeMuted } from '@/lib/progress';
+import { useWorldPrefs, type WorldPrefs } from '@/lib/worldPrefs';
+import WorldSettings, { type ParentStatus } from './WorldSettings';
 import type { World, WorldState } from '@/world/World';
-import { AgainIcon, BookIcon, HomeIcon, NextIcon, PlayIcon, SoundIcon, StarIcon } from '../Icons';
+import { AgainIcon, BookIcon, GearIcon, HomeIcon, NextIcon, PlayIcon, SoundIcon, StarIcon } from '../Icons';
 import s from './world.module.css';
 
-export default function WorldScreen({ content }: { content: ContentBundle }) {
+export default function WorldScreen({ content, defs, parent }: { content: ContentBundle; defs: LineDef[]; parent: ParentStatus }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const worldRef = useRef<World | null>(null);
   const narrator = useMemo(() => new Narrator(content.lines, { settings: content.narrator, cloud: content.cloudVoice }), [content]);
@@ -21,14 +23,29 @@ export default function WorldScreen({ content }: { content: ContentBundle }) {
   const [failed, setFailed] = useState(false);
   const muted = useMuted();
   const done = useWorldProgress();
-  const t = (key: string) => content.lines[key]?.text ?? '';
+  const prefs = useWorldPrefs();
+  const prefsRef = useRef<WorldPrefs>(prefs);
+  const [lines, setLines] = useState(content.lines);
+  const [settings, setSettings] = useState<null | 'play' | 'voice' | 'texts'>(null);
+  const t = (key: string) => lines[key]?.text ?? '';
 
   useEffect(() => { narrator.setMuted(muted); setSfxMuted(muted); }, [narrator, muted]);
+  useEffect(() => { prefsRef.current = prefs; }, [prefs]);
+  // the narrator's voice on this device
+  useEffect(() => {
+    const v = prefs.voice;
+    narrator.setDeviceVoice(v.startsWith('device:') ? v.slice(7) : null);
+    narrator.setSettings({ ...content.narrator, rate: prefs.rate, preferCloud: v === 'auto' ? content.narrator.preferCloud : v === 'cloud' });
+  }, [narrator, content, prefs.voice, prefs.rate]);
+
+  const onLine = (l: Line) => { setLines(prev => ({ ...prev, [l.key]: l })); narrator.setLine(l); };
 
   useEffect(() => {
     let alive = true;
     let w: World | null = null;
-    const bot = new URLSearchParams(window.location.search).has('bot');
+    const q = new URLSearchParams(window.location.search);
+    const bot = q.has('bot');
+    const lite = q.has('lite');
     import('@/world/World').then(({ World }) => {
       if (!alive || !canvasRef.current) return;
       try {
@@ -37,11 +54,15 @@ export default function WorldScreen({ content }: { content: ContentBundle }) {
           sfx: name => sfx[name](),
           onState: setState,
           onStationDone: i => markStationDone(i),
-          estimate: key => estimateSeconds(content.lines[key]?.speech ?? '', content.narrator.rate),
+          estimate: key => estimateSeconds(narrator.line(key)?.speech ?? '', prefsRef.current.rate),
+          counts: () => prefsRef.current.counts,
           bot,
+          lite,
         });
         worldRef.current = w;
         setLoading(false);
+        // back from the parent login: reopen the texts
+        if (window.location.hash === '#texts') { setSettings('texts'); history.replaceState(null, '', window.location.pathname); }
       } catch {
         setFailed(true);
       }
@@ -94,6 +115,7 @@ export default function WorldScreen({ content }: { content: ContentBundle }) {
             )}
           </div>
           <button className="iconbtn" onClick={toggleSound} aria-label={muted ? 'הפעלת צלילים' : 'השתקה'}><SoundIcon on={!muted} /></button>
+          <button className="iconbtn" onClick={() => setSettings('play')} aria-label="הגדרות המסע"><GearIcon /></button>
         </div>
       )}
 
@@ -149,6 +171,7 @@ export default function WorldScreen({ content }: { content: ContentBundle }) {
               {loading ? 'רגע...' : resumeAt > 0 ? `ממשיכים מתחנה ${resumeAt + 1}` : 'יוצאים למסע!'} <PlayIcon />
             </button>
             <button className="iconbtn" onClick={toggleSound} aria-label={muted ? 'הפעלת צלילים' : 'השתקה'}><SoundIcon on={!muted} /></button>
+            <button className="iconbtn" onClick={() => setSettings('play')} aria-label="הגדרות המסע"><GearIcon /></button>
             <Link className="iconbtn" href="/" aria-label="לדף הבית"><HomeIcon /></Link>
           </div>
           <div className={s.pick} aria-label="בחירת תחנה">
@@ -159,6 +182,19 @@ export default function WorldScreen({ content }: { content: ContentBundle }) {
             ))}
           </div>
         </section>
+      )}
+      {settings && (
+        <WorldSettings
+          prefs={prefs}
+          narrator={narrator}
+          cloudVoice={content.cloudVoice}
+          lines={lines}
+          defs={defs}
+          parent={parent}
+          onLine={onLine}
+          onClose={() => setSettings(null)}
+          initialTab={settings}
+        />
       )}
     </main>
   );

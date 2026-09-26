@@ -37,6 +37,8 @@ export class Narrator {
   private cloudFailed = false;
   private timer: ReturnType<typeof setInterval> | null = null;
   private finish: (() => void) | null = null;
+  private voiceName: string | null = null;
+  private repick: () => void = () => {};
 
   constructor(lines: Lines, opts: { settings?: NarratorSettings; cloud?: boolean } = {}) {
     this.lines = lines;
@@ -46,10 +48,12 @@ export class Narrator {
       const pick = () => {
         try {
           const vs = window.speechSynthesis.getVoices();
-          this.voice = vs.find(v => /^(he|iw)/i.test(v.lang) && /google|natural|premium|enhanced/i.test(v.name))
+          const chosen = this.voiceName ? vs.find(v => v.name === this.voiceName) : undefined;
+          this.voice = chosen ?? vs.find(v => /^(he|iw)/i.test(v.lang) && /google|natural|premium|enhanced/i.test(v.name))
             ?? vs.find(v => /^(he|iw)/i.test(v.lang)) ?? null;
         } catch { /* ignore */ }
       };
+      this.repick = pick;
       pick();
       window.speechSynthesis.addEventListener?.('voiceschanged', pick);
     }
@@ -73,6 +77,22 @@ export class Narrator {
 
   setMuted(m: boolean) { this.muted = m; if (m) this.stop(); }
   setSettings(v: NarratorSettings) { this.settings = v; }
+
+  /** Use a specific voice of this device by name (null: the best Hebrew voice). */
+  setDeviceVoice(name: string | null) { this.voiceName = name; this.repick(); }
+
+  /** Replace one line after the parent edited or recorded it. */
+  setLine(l: Line) { this.lines = { ...this.lines, [l.key]: l }; }
+
+  /** The voices this device can speak with, Hebrew first. */
+  static deviceVoices(): SpeechSynthesisVoice[] {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return [];
+    try {
+      const vs = window.speechSynthesis.getVoices();
+      const he = (v: SpeechSynthesisVoice) => /^(he|iw)/i.test(v.lang);
+      return [...vs.filter(he), ...vs.filter(v => !he(v))];
+    } catch { return []; }
+  }
 
   stop() {
     this.token++;

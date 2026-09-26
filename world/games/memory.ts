@@ -36,7 +36,9 @@ interface Clam {
 }
 
 export function memoryGame(ctx: Ctx): Game {
-  const boards = ctx.level < 0.3 ? [4, 6, 6] : ctx.level < 0.7 ? [4, 6, 8] : [6, 8, 8];
+  // `count` pairs in all, on boards of up to 4 pairs, the smaller boards first
+  const nBoards = Math.ceil(ctx.count / 4);
+  const boards = Array.from({ length: nBoards }, (_, i) => 2 * (Math.floor(ctx.count / nBoards) + (i >= nBoards - (ctx.count % nBoards) ? 1 : 0)));
   const geo = shellGeo();
   let board = 0, pairs = 0;
   const totalPairs = boards.reduce((a, b) => a + b / 2, 0);
@@ -123,7 +125,8 @@ export function memoryGame(ctx: Ctx): Game {
 
   const game: Game = {
     camera: { pos: new THREE.Vector3(0, 11.5, 9.5), look: new THREE.Vector3(0, 0, 0.4) },
-    kaspionSpot: new THREE.Vector3(0, 3.6, -5),
+    // behind the table, above its far edge: never over a shell
+    kaspionSpot: new THREE.Vector3(-3, 2.2, -9.5),
     update(dt, t) {
       if (intro) { intro = false; void ctx.say('world.memory.intro'); }
       if (pause > 0) pause -= dt;

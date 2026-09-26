@@ -19,7 +19,10 @@ const PART_COUNT: Record<Kind, number> = { fish: 3, kaspion: 3, whale: 2, crab: 
 interface Paint { mesh: THREE.Mesh; color: string; home: THREE.Vector3 }
 
 export function colorGame(ctx: Ctx): Game {
-  const set = SETS[Math.floor(ctx.level * 3.99) % SETS.length];
+  const base = SETS[Math.floor(ctx.level * 3.99) % SETS.length];
+  // `count` friends to color, going round the set (and the other sets) as needed
+  const pool = [...base, ...SETS.flat().filter(k => !base.includes(k))].filter((k, i, a) => a.indexOf(k) === i);
+  const set = Array.from({ length: ctx.count }, (_, i) => pool[i % pool.length]);
   const hw = Math.min(7, ctx.halfWidth(0) * 0.95);
   let idx = 0;
   let friend: Creature | null = null;
@@ -79,7 +82,7 @@ export function colorGame(ctx: Ctx): Game {
 
   const game: Game = {
     camera: { pos: new THREE.Vector3(0, 3.6, 11), look: new THREE.Vector3(0, 2.1, 0) },
-    kaspionSpot: new THREE.Vector3(hw - 1, 4.6, -1),
+    kaspionSpot: new THREE.Vector3(-hw + 0.8, 5.2, -1),
     update(dt, t) {
       if (intro) { intro = false; void ctx.say('world.color.intro'); }
       if (friend) {

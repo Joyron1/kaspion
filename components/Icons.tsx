@@ -5,6 +5,9 @@ const S = { stroke: '#15223a', strokeWidth: 2, strokeLinejoin: 'round' as const,
 export function HomeIcon() {
   return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5V21h-6v-6H9v6H3z" fill="#ff6b4a" {...S} /></svg>;
 }
+export function GearIcon() {
+  return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.8l1.6 2.3 2.7-.6.6 2.7 2.4 1.4-1.2 2.5 1.2 2.5-2.4 1.4-.6 2.7-2.7-.6L12 21.2l-1.6-2.3-2.7.6-.6-2.7-2.4-1.4 1.2-2.5-1.2-2.5 2.4-1.4.6-2.7 2.7.6z" fill="#8fd3ff" {...S} /><circle cx="12" cy="12" r="3.2" fill="#fffaf0" {...S} /></svg>;
+}
 export function MapIcon() {
   return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6l6-2 6 2 6-2v14l-6 2-6-2-6 2z" fill="#ffd23f" {...S} /><path d="M9 4v14M15 6v14" {...S} fill="none" /></svg>;
 }

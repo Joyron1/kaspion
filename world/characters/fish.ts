@@ -133,6 +133,8 @@ export function makeFish(o: FishOpts = {}): Creature {
     w.uWaveSpeed.value = 5 + s * 8;
     const ph = t * w.uWaveSpeed.value - 0.72 * 3.2 - 0.9;
     tailPivot.rotation.y = Math.sin(ph) * (0.25 + s * 0.35);
+    // the head swings a little against the tail, like a real fish
+    self.yaw = Math.sin(ph + 1.4) * (0.02 + s * 0.07);
     for (const [i, p] of pecs.entries()) p.rotation.y = (i ? -1 : 1) * (0.3 + Math.sin(t * (6 + s * 6) + i) * 0.35);
     if (glint) {
       const k = Math.max(0, Math.sin(t * 1.7)) ** 6;

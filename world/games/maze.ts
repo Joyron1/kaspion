@@ -65,8 +65,13 @@ function route(solid: boolean[][], a: [number, number], b: [number, number]): [n
 
 export function mazeGame(ctx: Ctx): Game {
   const wide = ctx.stage.aspect >= 1;
-  const sizes: [number, number][] = ctx.level < 0.3 ? [[3, 2], [4, 3], [4, 3]] : ctx.level < 0.7 ? [[4, 3], [5, 3], [5, 4]] : [[4, 3], [5, 4], [6, 4]];
-  const mazes = sizes.map(([c, r]) => (wide ? [c, r] : [r, c]) as [number, number]);
+  // `count` mazes, growing a little each time (and a little bigger at later stations)
+  const LADDER: [number, number][] = [[3, 2], [3, 3], [4, 3], [4, 3], [5, 3], [5, 4], [6, 4]];
+  const start = Math.round(ctx.level * 2);
+  const mazes = Array.from({ length: ctx.count }, (_, i) => {
+    const [c, r] = LADDER[Math.min(LADDER.length - 1, start + Math.floor(i * 4 / Math.max(1, ctx.count)))];
+    return (wide ? [c, r] : [r, c]) as [number, number];
+  });
   let idx = 0;
   let solid: boolean[][] = [];
   let tile = 1;

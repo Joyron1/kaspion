@@ -25,6 +25,8 @@ export interface Creature {
   shake(): void;
   /** eyes follow this point (world space), or look ahead when null */
   lookAt: THREE.Vector3 | null;
+  /** a gentle side-to-side sway of the body, set by the creature's own swimming */
+  yaw: number;
 }
 
 const WHITE = gloss('#ffffff', 0.08);
@@ -70,7 +72,7 @@ export function blush(r: number): THREE.Mesh {
  * Common behavior: blinking, eye tracking, bobbing, cheer and shake.
  * `extra` is the creature's own animation (fins, legs, tentacles).
  */
-export function lifecycle(c: Omit<Creature, 'update' | 'cheer' | 'shake' | 'swim' | 'lookAt'>, eyes: Eye[], extra: (dt: number, t: number, self: Creature) => void, bob = 0.08): Creature {
+export function lifecycle(c: Omit<Creature, 'update' | 'cheer' | 'shake' | 'swim' | 'lookAt' | 'yaw'>, eyes: Eye[], extra: (dt: number, t: number, self: Creature) => void, bob = 0.08): Creature {
   let blinkAt = 1 + Math.random() * 3;
   let cheerT = 0, shakeT = 0;
   const seed = Math.random() * 10;
@@ -79,6 +81,7 @@ export function lifecycle(c: Omit<Creature, 'update' | 'cheer' | 'shake' | 'swim
     ...c,
     swim: 0,
     lookAt: null,
+    yaw: 0,
     cheer() { cheerT = 1; },
     shake() { shakeT = 1; },
     update(dt, t) {
@@ -118,7 +121,7 @@ export function lifecycle(c: Omit<Creature, 'update' | 'cheer' | 'shake' | 'swim
       if (shakeT > 0) {
         shakeT = Math.max(0, shakeT - dt * 1.6);
         b.rotation.y = Math.sin(shakeT * 22) * 0.35 * shakeT;
-      } else b.rotation.y *= 0.85;
+      } else b.rotation.y += (self.yaw - b.rotation.y) * Math.min(1, dt * 12);
       extra(dt, t, self);
     },
   };

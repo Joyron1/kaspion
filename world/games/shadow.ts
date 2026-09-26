@@ -18,19 +18,20 @@ const LOOKALIKE: Partial<Record<Kind, Kind[]>> = {
 interface Choice { c: Creature; kind: Kind; home: THREE.Vector3; right: boolean }
 
 export function shadowGame(ctx: Ctx): Game {
-  const rounds = Math.round(8 + ctx.level * 2);
+  const rounds = ctx.count;
   const nChoices = ctx.level < 0.3 ? 3 : 4;
   const hw = Math.min(7, ctx.halfWidth(0) * 0.92);
 
   // the big pale rock the shadows are painted on
-  const wallW = Math.min(8, hw * 1.25), wallH = 4.4;
+  // the rock sits high and alone; the choices float in a row below it, never in front of the shadow
+  const wallW = Math.min(8, hw * 1.25), wallH = 4.2;
   const wall = new THREE.Mesh(new RoundedBoxGeometry(wallW, wallH, 0.9, 6, 0.45), clay('#e2d4b8', { rough: 0.95, rim: 0.15, caustics: 0.7 }));
-  wall.position.set(0, wallH / 2 + 0.6, -3.2);
+  wall.position.set(0, wallH / 2 + 1.7, -3.2);
   wall.castShadow = true; wall.receiveShadow = true;
   ctx.group.add(wall);
-  const base = new THREE.Mesh(new THREE.CylinderGeometry(wallW * 0.55, wallW * 0.62, 0.7, 24), clay('#c9b793', { rough: 1, caustics: 0.8 }));
+  const base = new THREE.Mesh(new THREE.CylinderGeometry(wallW * 0.4, wallW * 0.55, 1.8, 24), clay('#c9b793', { rough: 1, caustics: 0.8 }));
   base.scale.z = 0.4;
-  base.position.set(0, 0.35, -3.2);
+  base.position.set(0, 0.9, -3.3);
   ctx.group.add(base);
 
   let round = 0;
@@ -57,7 +58,8 @@ export function shadowGame(ctx: Ctx): Game {
     const gap = Math.min(3.4, (hw * 2 - 1.5) / kinds.length);
     choices = kinds.map((k, i) => {
       const c = sized(k, k === 'whale' ? 2.6 : 1.9);
-      const home = new THREE.Vector3((i - (kinds.length - 1) / 2) * gap, 1.5 + (i % 2) * 0.5, 1.2);
+      const front = ['crab', 'octopus', 'starfish', 'jelly', 'seahorse'].includes(k);
+      const home = new THREE.Vector3((i - (kinds.length - 1) / 2) * gap, front ? 0.15 : 0.95, 2.6);
       c.root.position.set(home.x + (home.x < 0 ? -hw - 4 : hw + 4), home.y, home.z);
       ctx.group.add(c.root);
       addHitArea(c, 1.15);
@@ -80,8 +82,9 @@ export function shadowGame(ctx: Ctx): Game {
   let flyScale = 1;
 
   const game: Game = {
-    camera: { pos: new THREE.Vector3(0, 4, 12.5), look: new THREE.Vector3(0, 2.6, 0) },
-    kaspionSpot: new THREE.Vector3(-hw + 0.6, 4.6, -1),
+    camera: { pos: new THREE.Vector3(0, 3.8, 12.5), look: new THREE.Vector3(0, 2.9, 0) },
+    // up in the corner, well away from the rock
+    kaspionSpot: new THREE.Vector3(-hw - 0.2, 6.2, 0.5),
     update(dt, t) {
       for (const ch of choices) ch.c.update(dt, t);
       shadow?.update(0, 0);

@@ -13,6 +13,8 @@ export interface Ctx {
   kaspion: Creature;
   /** 0 = easiest .. 1 = hardest */
   level: number;
+  /** how many times the child does the task (parents set this; default 5) */
+  count: number;
   say(key: string): Promise<void>;
   sfx(name: 'tap' | 'pop' | 'shell' | 'bonk' | 'sparkle' | 'join' | 'stage' | 'win' | 'whale' | 'whaleHappy' | 'splash' | 'whoosh' | 'giggle' | 'call'): void;
   praise(): void;

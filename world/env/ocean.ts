@@ -214,6 +214,8 @@ export class Garden {
   private dummy = new THREE.Object3D();
   private color = new THREE.Color();
   readonly center = new THREE.Vector3();
+  /** keep the swim lane clear: true when a prop of radius r at (x, z) would be in the way */
+  blocked: ((x: number, z: number, r: number) => boolean) | null = null;
 
   constructor(parent: THREE.Object3D, lowPower: boolean) {
     parent.add(this.group);
@@ -253,6 +255,9 @@ export class Garden {
 
   private put(k: { mesh: THREE.InstancedMesh; n: number }, x: number, y: number, z: number, s: THREE.Vector3 | number, rotY: number, color: THREE.ColorRepresentation, tilt = 0) {
     if (k.n >= k.mesh.instanceMatrix.count) return;
+    // tall kelp needs a wider berth from the lane than low coral
+    const clearance = k === this.kelp ? 8 : k === this.shell ? 0 : 5;
+    if (clearance && this.blocked?.(x, z, clearance)) return;
     const d = this.dummy;
     d.position.set(x, y, z);
     d.rotation.set(tilt, rotY, tilt * 0.5);

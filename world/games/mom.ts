@@ -11,7 +11,7 @@ const FRONT = new Set<Kind>(['crab', 'octopus', 'starfish', 'jelly']);
 interface Baby { c: Creature; kind: Kind; bubble: THREE.Mesh; home: THREE.Vector3; right: boolean; free: boolean; ph: number }
 
 export function momGame(ctx: Ctx): Game {
-  const rounds = 7;
+  const rounds = ctx.count;
   const hw = Math.min(7.5, ctx.halfWidth(0) * 0.95);
   const order = shuffle(PAIRS);
   let round = 0, solved = 0;
