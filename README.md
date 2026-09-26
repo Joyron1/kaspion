@@ -1,36 +1,63 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# כספיון
 
-## Getting Started
+משחק שלבים וסיפור מוקרא לילדים בגילאי 3–5, בהשראת הספר "כספיון הדג הקטן" מאת פאול קור.
+הטקסטים והציורים כאן הם שלנו: סיפור מחדש במילים שלנו, וציור בקוד בסגנון קווי מתאר עבים וצבעים שטוחים.
 
-First, run the development server:
+- **משחק** (`/play`): 13 שלבים, שלב לכל רגע בסיפור. בכל שלב שלוש משימות קצרות, כך שהוא נמשך בערך דקה וחצי עד שלוש דקות.
+- **קוראים יחד** (`/read`): הסיפור עמוד אחר עמוד, עם איור מונפש לכל עמוד. הקריין מקריא, המילה הנקראת מודגשת, והעמודים מתהפכים לבד. אפשר גם לקרוא לבד.
+- **להורים** (`/editor`): עריכה של כל טקסט, ניקוד (מקלדת ניקוד וניקוד אוטומטי), טקסט נפרד להקראה, האזנה, הקלטה בקול שלכם או העלאת קובץ, כיוון אורך השלבים, וזמני משחק אמיתיים.
+
+## הקריין
+
+לכל טקסט הקריין בוחר את המקור הטוב ביותר שיש:
+
+1. הקלטה או קובץ ששמרתם לטקסט (או הקראה שנוצרה ונשמרה בקול ענן)
+2. קול ענן, אם הוגדר `TTS_PROVIDER` (Azure, Google, OpenAI או ElevenLabs). כל נוסח נוצר פעם אחת ונשמר ב-Supabase Storage
+3. הקול העברי של המכשיר (Web Speech)
+4. אם אין קול: הטקסט מוצג, והקריאה המשותפת מתקדמת לפי זמן משוער
+
+הניקוד עוזר להגייה, אבל לא כל מנוע קול מכבד אותו. לכן לכל טקסט יש גם שדה "מה הקריין אומר": אפשר לכתוב שם כתיב מלא או ניקוד מדויק רק עבור הקריין, בלי לשנות את מה שמוצג לילד. להגייה מושלמת, מקליטים.
+
+## הרצה מקומית
 
 ```bash
+npm install
+cp .env.example .env.local   # ממלאים לפחות ADMIN_PASSWORD ו-AUTH_SECRET
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+בלי Supabase הכול עובד על הטקסטים שבקוד. העורך נפתח, אבל אי אפשר לשמור.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Supabase
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+1. יוצרים פרויקט חדש ב-Supabase.
+2. מריצים את `supabase/migrations/0001_init.sql` ב-SQL Editor. הקובץ יוצר את הטבלאות `lines`, `settings` ו-`plays`, ואת ה-bucket הציבורי `narration`.
+3. מגדירים את `SUPABASE_URL` ואת `SUPABASE_SERVICE_ROLE_KEY`.
 
-## Learn More
+כל הקריאות ציבוריות (המשחק צריך אותן). כל הכתיבות עוברות דרך השרת, אחרי כניסת הורה.
 
-To learn more about Next.js, take a look at the following resources:
+## Vercel
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+מייבאים את הריפו ב-Vercel (Framework: Next.js) ומגדירים את משתני הסביבה מ-`.env.example`. חובה: `ADMIN_PASSWORD` ו-`AUTH_SECRET`. מומלץ: משתני Supabase. רשות: קול ענן.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## בדיקות
 
-## Deploy on Vercel
+```bash
+npx tsx scripts/sim.mts            # מריץ כל שלב עם "בוט ילד" ומדווח כמה זמן לקח (יעד: 95–130 שניות לבוט)
+npx tsx scripts/sim.mts eye --fast # שחקן מהיר: הגבול התחתון
+npm run build && ./scripts/serve-test.sh && node scripts/playtest.mjs http://localhost:3100   # אותו דבר בדפדפן אמיתי
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+הבוט מהיר מילד אמיתי, ולכן היעד שלו נמוך מהיעד לילדים (90–180 שניות). הזמנים האמיתיים של ילדים נאספים ב-Supabase ומוצגים בעורך, בלשונית "זמני משחק". את הכמויות בכל שלב משנים בלשונית "אורך השלבים", בלי קוד.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## מבנה
+
+- `game/engine`: מנוע המשחק (לולאה, מצלמה, משימות, רמזים), ערכת הציור (`art.ts`), רכיבי משחק (`kit.ts`), קריין, צלילים
+- `game/levels`: שלב לכל עמוד. הטקסטים וההגדרות שלהם ב-`lib/content/levels.ts`
+- `game/scenes`: איור מונפש לכל עמוד בקריאה המשותפת. טקסט העמודים ב-`lib/content/story.ts`
+- `lib/content`: כל הטקסטים עם ברירות מחדל. שינויים של ההורים נשמרים ב-Supabase ודורסים אותם
+- `app/api`: קול ענן, ניקוד אוטומטי (Dicta), שמירת טקסטים והקלטות, הגדרות, זמני משחק, כניסה
+
+## זכויות
+
+הדמויות והסיפור המקורי שייכים לעיזבון פאול קור ולהוצאת כנרת זמורה-ביתן דביר. הפרויקט מיועד לשימוש ביתי. לפני פרסום לציבור צריך אישור מבעלי הזכויות.

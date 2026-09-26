@@ -14,6 +14,7 @@ import { HomeIcon, NextIcon, PauseIcon, PlayIcon, PrevIcon, SoundIcon } from '..
 import s from './read.module.css';
 
 interface Props { pages: Pick<StoryPage, 'id' | 'scene'>[]; content: ContentBundle }
+
 type Mode = 'cover' | 'page' | 'end';
 
 export default function ReadAlong({ pages, content }: Props) {
@@ -45,23 +46,45 @@ export default function ReadAlong({ pages, content }: Props) {
     const cv = canvasRef.current;
     if (!cv) return;
     const c = cv.getContext('2d')!;
+    // the picture is drawn on its own layer so its sides can fade into the water
+    const layer = document.createElement('canvas');
+    const lc = layer.getContext('2d')!;
     let raf = 0, last = performance.now();
     const loop = (now: number) => {
       const dt = Math.min(0.05, (now - last) / 1000); last = now;
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
       const w = cv.clientWidth, h = cv.clientHeight;
-      if (cv.width !== Math.round(w * dpr) || cv.height !== Math.round(h * dpr)) { cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr); }
+      const pw = Math.round(w * dpr), ph = Math.round(h * dpr);
+      if (cv.width !== pw || cv.height !== ph) { cv.width = pw; cv.height = ph; layer.width = pw; layer.height = ph; }
       const sc = Math.min(w / STAGE_W, h / STAGE_H);
       const ox = (w - STAGE_W * sc) / 2, oy = (h - STAGE_H * sc) / 2;
       c.setTransform(dpr, 0, 0, dpr, 0, 0);
       sea(c, w, h, now / 1000, 0.1);
-      c.setTransform(dpr * sc, 0, 0, dpr * sc, dpr * ox, dpr * oy);
-      c.save(); c.beginPath(); c.rect(-ox / sc, -oy / sc, w / sc, h / sc); c.clip();
+
+      lc.setTransform(1, 0, 0, 1, 0, 0);
+      lc.clearRect(0, 0, pw, ph);
+      lc.setTransform(dpr * sc, 0, 0, dpr * sc, dpr * ox, dpr * oy);
       const t = (now - pageStart.current) / 1000;
-      sceneRef.current?.draw(c, t, progressRef.current);
+      sceneRef.current?.draw(lc, t, progressRef.current);
       fxRef.current.update(dt);
-      fxRef.current.draw(c);
-      c.restore();
+      fxRef.current.draw(lc);
+      if (ox > 2) {
+        // fade the picture's left and right edges (wide screens leave plain water beside it)
+        const band = Math.min(70 * sc, w / 4);
+        lc.setTransform(dpr, 0, 0, dpr, 0, 0);
+        const g = lc.createLinearGradient(ox, 0, w - ox, 0);
+        const f = band / (w - 2 * ox);
+        g.addColorStop(0, 'rgba(0,0,0,0)');
+        g.addColorStop(f, 'rgba(0,0,0,1)');
+        g.addColorStop(1 - f, 'rgba(0,0,0,1)');
+        g.addColorStop(1, 'rgba(0,0,0,0)');
+        lc.globalCompositeOperation = 'destination-in';
+        lc.fillStyle = g;
+        lc.fillRect(0, 0, w, h);
+        lc.globalCompositeOperation = 'source-over';
+      }
+      c.setTransform(1, 0, 0, 1, 0, 0);
+      c.drawImage(layer, 0, 0);
       raf = requestAnimationFrame(loop);
     };
     raf = requestAnimationFrame(loop);
