@@ -16,7 +16,8 @@ export default async function Home() {
         <h1 className={`${s.logo} display`}>{t('ui.app.title')}</h1>
         <p className={s.tagline}>{t('ui.app.tagline')}</p>
         <div className={s.choices}>
-          <Link href="/play" className="big"><PlayIcon /> {t('ui.home.play')}</Link>
+          <Link href="/world" className="big"><PlayIcon /> {t('ui.home.world')}</Link>
+          <Link href="/play" className="big alt"><PlayIcon /> {t('ui.home.play')}</Link>
           <Link href="/read" className="big alt"><BookIcon /> {t('ui.home.read')}</Link>
         </div>
       </div>

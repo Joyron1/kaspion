@@ -2,6 +2,7 @@ import type { LineDef } from './types';
 import { STORY_PAGES } from './story';
 import { LEVELS } from './levels';
 import { UI_LINES } from './ui';
+import { WORLD_LINES } from './world';
 
 // Level text names get a Hebrew label in the editor; unknown names show as is.
 const LEVEL_LABELS: Record<string, string> = {
@@ -39,5 +40,5 @@ export function allLineDefs(): LineDef[] {
       text,
     })),
   ]);
-  return [...story, ...levels, ...UI_LINES];
+  return [...story, ...levels, ...WORLD_LINES, ...UI_LINES];
 }

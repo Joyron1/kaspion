@@ -16,10 +16,11 @@ interface Props {
   status: Status;
 }
 
-type Tab = 'story' | 'level' | 'ui' | 'voice' | 'levels' | 'stats';
+type Tab = 'story' | 'level' | 'world' | 'ui' | 'voice' | 'levels' | 'stats';
 const TABS: { id: Tab; label: string }[] = [
   { id: 'story', label: 'הסיפור' },
   { id: 'level', label: 'טקסטים בשלבים' },
+  { id: 'world', label: 'המסע בתלת־ממד' },
   { id: 'ui', label: 'כפתורים ומחמאות' },
   { id: 'voice', label: 'הקריין' },
   { id: 'levels', label: 'אורך השלבים' },
@@ -38,7 +39,7 @@ export default function Editor({ defs, content, levels, status }: Props) {
   const onSaved = (l: Line) => setLines(prev => ({ ...prev, [l.key]: l }));
 
   const shown = defs.filter(d => {
-    if ((tab === 'story' || tab === 'level' || tab === 'ui') && d.group !== tab) return false;
+    if ((tab === 'story' || tab === 'level' || tab === 'world' || tab === 'ui') && d.group !== tab) return false;
     const l = lines[d.key];
     if (filter === 'noNikud' && nikudCoverage(l.text) > 0.6) return false;
     if (filter === 'notReviewed' && l.reviewed) return false;

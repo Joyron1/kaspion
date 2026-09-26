@@ -4,6 +4,7 @@ import type { LineDef } from './types';
 export const UI_TEXTS: Record<string, { label: string; text: string }> = {
   'app.title':      { label: 'שם המשחק', text: 'כספיון' },
   'app.tagline':    { label: 'שורת פתיחה', text: 'הרפתקה קטנה מתחת לים' },
+  'home.world':     { label: 'כפתור המסע בתלת־ממד', text: 'המסע הגדול' },
   'home.play':      { label: 'כפתור משחק', text: 'בואו נשחק' },
   'home.read':      { label: 'כפתור קריאה', text: 'קוראים יחד' },
   'touch.hint':     { label: 'הסבר שליטה', text: 'נוגעים במסך, וכספיון שוחה אל האצבע.' },

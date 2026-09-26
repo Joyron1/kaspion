@@ -16,7 +16,47 @@ export function unlockAudio() {
   if (actx && actx.state === 'suspended') void actx.resume();
 }
 
-export function setSfxMuted(m: boolean) { muted = m; }
+export function setSfxMuted(m: boolean) {
+  muted = m;
+  if (amb && actx) amb.gain.setTargetAtTime(m ? 0 : AMB_VOL, actx.currentTime, 0.3);
+}
+
+// ---- a soft underwater bed for the 3D journey: deep filtered noise that swells slowly
+const AMB_VOL = 0.07;
+let amb: GainNode | null = null;
+let ambStop: (() => void) | null = null;
+
+export function startAmbience() {
+  if (!actx || amb) return;
+  const a = actx;
+  const len = a.sampleRate * 4;
+  const buf = a.createBuffer(1, len, a.sampleRate);
+  const d = buf.getChannelData(0);
+  let last = 0;
+  for (let i = 0; i < len; i++) { last = (last + 0.02 * (Math.random() * 2 - 1)) / 1.02; d[i] = last * 3.5; }
+  const src = a.createBufferSource();
+  src.buffer = buf; src.loop = true;
+  const lp = a.createBiquadFilter();
+  lp.type = 'lowpass'; lp.frequency.value = 420; lp.Q.value = 0.7;
+  const lfo = a.createOscillator(), lfoGain = a.createGain();
+  lfo.frequency.value = 0.08; lfoGain.gain.value = 180;
+  lfo.connect(lfoGain).connect(lp.frequency);
+  amb = a.createGain();
+  amb.gain.value = 0;
+  amb.gain.setTargetAtTime(muted ? 0 : AMB_VOL, a.currentTime, 1.5);
+  src.connect(lp).connect(amb).connect(a.destination);
+  src.start(); lfo.start();
+  // now and then a little bubble
+  const bubbles = setInterval(() => { if (!muted && Math.random() < 0.5) tone(500 + Math.random() * 500, 1400 + Math.random() * 600, 0.09, 'sine', 0.025); }, 1600);
+  ambStop = () => { clearInterval(bubbles); try { src.stop(); lfo.stop(); } catch { /* already stopped */ } };
+}
+
+export function stopAmbience() {
+  ambStop?.();
+  ambStop = null;
+  amb?.disconnect();
+  amb = null;
+}
 
 function tone(f1: number, f2: number, dur: number, type: OscillatorType = 'sine', vol = 0.18, delay = 0) {
   if (muted || !actx) return;

@@ -5,6 +5,7 @@ import { useSyncExternalStore } from 'react';
 // Per-browser conveniences: which levels are done, and whether sound is off.
 const PROGRESS = 'kaspion-progress-v1';
 const MUTED = 'kaspion-muted';
+const WORLD = 'kaspion-world-v1';
 const EVT = 'kaspion-storage';
 
 function read(key: string): string | null {
@@ -49,4 +50,30 @@ export function writeMuted(m: boolean) { write(MUTED, m ? '1' : '0'); }
 /** Sound on/off, remembered per browser. Always "on" during server render. */
 export function useMuted(): boolean {
   return useSyncExternalStore(subscribe, () => read(MUTED) === '1', () => false);
+}
+
+// ---- the 3D journey: which stations are done
+export function readWorld(): number[] {
+  try {
+    const v = JSON.parse(read(WORLD) ?? '[]');
+    return Array.isArray(v) ? v.filter(n => typeof n === 'number') : [];
+  } catch {
+    return [];
+  }
+}
+export function markStationDone(i: number) {
+  const done = readWorld();
+  if (!done.includes(i)) write(WORLD, JSON.stringify([...done, i].sort((a, b) => a - b)));
+}
+export function resetWorld() { write(WORLD, '[]'); }
+
+/** Finished journey stations, re-rendering when they change. Empty on the server. */
+export function useWorldProgress(): number[] {
+  const raw = useSyncExternalStore(subscribe, () => read(WORLD), () => null);
+  try {
+    const v = JSON.parse(raw ?? '[]');
+    return Array.isArray(v) ? v : [];
+  } catch {
+    return [];
+  }
 }

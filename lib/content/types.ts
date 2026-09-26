@@ -1,6 +1,6 @@
 // Shared content types (server + client).
 
-export type LineGroup = 'story' | 'level' | 'ui';
+export type LineGroup = 'story' | 'level' | 'ui' | 'world';
 
 /** A text the app can show and narrate, with its default wording from code. */
 export interface LineDef {
