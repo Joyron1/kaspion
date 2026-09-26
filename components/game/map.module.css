@@ -1,0 +1,42 @@
+.root {
+  min-height: 100dvh;
+  background:
+    radial-gradient(circle at 20% 10%, rgba(255,255,255,.18), transparent 40%),
+    linear-gradient(#5ccbee, #1f74c0 45%, #134a8a);
+  padding: calc(env(safe-area-inset-top, 0px) + 14px) 16px calc(env(safe-area-inset-bottom, 0px) + 40px);
+}
+.head { display: flex; align-items: center; justify-content: space-between; gap: 12px; max-width: 760px; margin: 0 auto 18px; }
+.head h1 {
+  margin: 0; font-size: clamp(28px, 6vw, 42px); color: #fff; text-align: center;
+  -webkit-text-stroke: 6px var(--ink); paint-order: stroke fill; text-shadow: 0 5px 0 var(--ink);
+}
+.path { list-style: none; margin: 0 auto; padding: 0; max-width: 760px; display: flex; flex-direction: column; gap: 18px; position: relative; }
+.path::before {
+  content: ""; position: absolute; top: 20px; bottom: 20px; left: 50%; width: 10px; transform: translateX(-50%);
+  background: repeating-linear-gradient(var(--paper) 0 14px, transparent 14px 26px); opacity: .6; border-radius: 99px;
+}
+.stop { position: relative; display: flex; }
+.left { justify-content: flex-start; }
+.right { justify-content: flex-end; }
+.node {
+  position: relative; width: min(360px, 88%);
+  display: flex; align-items: center; gap: 12px; text-decoration: none;
+  background: var(--paper); border: 4px solid var(--ink); border-radius: 22px; box-shadow: 0 6px 0 var(--ink);
+  padding: 10px 14px;
+}
+.node:active { transform: translateY(4px); box-shadow: 0 2px 0 var(--ink); }
+.num {
+  flex: none; width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center;
+  background: #dde6ee; border: 3px solid var(--ink); font-size: 26px;
+}
+.done .num { background: var(--sun); }
+.next { outline: 5px solid var(--sun); outline-offset: 3px; animation: bob 2.4s ease-in-out infinite; }
+.next .num { background: var(--coral); color: #fff; }
+.text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.title { font-size: 21px; line-height: 1.15; }
+.blurb { font-size: 14px; color: var(--muted); line-height: 1.35; }
+.star { position: absolute; top: -14px; inset-inline-end: -10px; }
+@media (max-width: 520px) {
+  .left, .right { justify-content: center; }
+  .node { width: 100%; }
+}
