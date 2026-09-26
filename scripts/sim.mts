@@ -54,6 +54,7 @@ const argv = process.argv.slice(2);
 const flag = (n: string) => argv.find(a => a.startsWith(`--${n}`));
 const runs = Number(flag('runs')?.split('=')[1] ?? 3);
 const fast = Boolean(flag('fast'));
+const cfgMode = flag('cfg')?.split('=')[1]; // min | max: every knob at its extreme
 const wanted = argv.filter(a => !a.startsWith('--'));
 const ids = wanted.length ? wanted : LEVELS.map(l => l.id);
 
@@ -67,7 +68,10 @@ function simulate(id: string): Result {
   const meta = LEVELS.find(l => l.id === id)!;
   let done: { seconds: number; stages: number[] } | null = null;
   const game: any = new Game(canvas, def, {
-    levelId: id, narrator, cfg: { ...meta.config },
+    levelId: id, narrator,
+    cfg: cfgMode === 'min' || cfgMode === 'max'
+      ? Object.fromEntries(Object.entries(meta.knobs).map(([k, v]) => [k, cfgMode === 'min' ? v.min : v.max]))
+      : { ...meta.config },
     onHud: noop, onToast: noop, onStage: noop,
     onComplete: (r: { seconds: number; stages: number[] }) => { done = r; },
   });
@@ -126,7 +130,7 @@ for (const id of ids) {
   const secs = rs.map(r => r.seconds).filter((s): s is number => s !== null);
   const avg = secs.length ? Math.round(secs.reduce((a, b) => a + b, 0) / secs.length) : null;
   const problem = rs.find(r => r.error || r.missing || r.seconds === null);
-  const lo = fast ? 60 : 95, hi = fast ? 200 : 130;
+  const lo = cfgMode ? 0 : fast ? 60 : 95, hi = cfgMode ? 9999 : fast ? 200 : 130;
   const verdict = problem ? (problem.missing ? 'MISSING' : problem.error ? 'ERROR' : `STUCK at mission ${(problem.stuckAt ?? 0) + 1}`)
     : avg! < lo ? 'too short' : avg! > hi ? 'too long' : 'ok';
   if (verdict !== 'ok') bad++;
