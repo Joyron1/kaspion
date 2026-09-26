@@ -1,6 +1,6 @@
 import { denyUnlessAdmin } from '@/lib/auth';
 import { LEVELS } from '@/lib/content/levels';
-import { db } from '@/lib/supabase';
+import { db, explain } from '@/lib/supabase';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,7 +14,7 @@ export async function POST(req: Request) {
   if (!Number.isFinite(seconds) || seconds < 5 || seconds > 3600) return Response.json({ error: 'bad duration' }, { status: 400 });
   const stages = Array.isArray(b.stages) ? b.stages.slice(0, 8).map(n => Math.max(0, Math.min(3600, Math.round(Number(n) || 0)))) : null;
   const { error } = await client.from('plays').insert({ level_id: b.level_id, seconds, stages, completed: b.completed !== false });
-  if (error) return Response.json({ error: error.message }, { status: 500 });
+  if (error) return Response.json({ error: explain(error.message) }, { status: 500 });
   return Response.json({ ok: true });
 }
 
@@ -25,7 +25,7 @@ export async function GET() {
   const client = db();
   if (!client) return Response.json({ levels: [] });
   const { data, error } = await client.from('plays').select('level_id,seconds,stages,created_at').order('created_at', { ascending: false }).limit(2000);
-  if (error) return Response.json({ error: error.message }, { status: 500 });
+  if (error) return Response.json({ error: explain(error.message) }, { status: 500 });
   const by = new Map<string, number[]>();
   for (const r of data ?? []) {
     if (!by.has(r.level_id)) by.set(r.level_id, []);

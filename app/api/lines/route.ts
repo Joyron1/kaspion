@@ -1,6 +1,6 @@
 import { denyUnlessAdmin } from '@/lib/auth';
 import { allLineDefs } from '@/lib/content/registry';
-import { db, BUCKET } from '@/lib/supabase';
+import { db, BUCKET, explain } from '@/lib/supabase';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,7 +23,7 @@ export async function PUT(req: Request) {
     updated_at: new Date().toISOString(),
   };
   const { error } = await client.from('lines').upsert(row, { onConflict: 'key' });
-  if (error) return Response.json({ error: error.message }, { status: 500 });
+  if (error) return Response.json({ error: explain(error.message) }, { status: 500 });
   return Response.json({ ok: true });
 }
 
@@ -40,6 +40,6 @@ export async function DELETE(req: Request) {
     await client.storage.from(BUCKET).remove([data.audio_path]);
   }
   const { error } = await client.from('lines').delete().eq('key', key);
-  if (error) return Response.json({ error: error.message }, { status: 500 });
+  if (error) return Response.json({ error: explain(error.message) }, { status: 500 });
   return Response.json({ ok: true });
 }

@@ -17,6 +17,19 @@ export function db(): SupabaseClient | null {
   return client;
 }
 
+/**
+ * Supabase write errors in words a parent can act on. The common one: the public
+ * (publishable/anon) key was put where the secret key belongs, so every write is refused.
+ */
+export function explain(message: string): string {
+  if (/row-level security|42501|permission denied/i.test(message)) {
+    return env.supabaseServiceKey.startsWith('sb_publishable_')
+      ? 'אי אפשר לשמור: ב-Vercel הוגדר המפתח הציבורי של Supabase (sb_publishable_…) במקום המפתח הסודי. צריך לשים ב-SUPABASE_SERVICE_ROLE_KEY את ה-Secret key (sb_secret_…) או את service_role, ולפרוס מחדש.'
+      : 'אי אפשר לשמור: המפתח של Supabase ב-Vercel לא מורשה לכתוב. צריך לשים ב-SUPABASE_SERVICE_ROLE_KEY את ה-Secret key (sb_secret_…) או את service_role, ולפרוס מחדש.';
+  }
+  return message;
+}
+
 export function publicAudioUrl(path: string | null | undefined, version?: string | null): string | null {
   if (!path || !env.supabaseUrl) return null;
   const base = `${env.supabaseUrl.replace(/\/$/, '')}/storage/v1/object/public/${BUCKET}/${path}`;

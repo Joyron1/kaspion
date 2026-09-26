@@ -1,7 +1,7 @@
 import { denyUnlessAdmin } from '@/lib/auth';
 import { allLineDefs } from '@/lib/content/registry';
 import { loadContent } from '@/lib/content/load';
-import { db, BUCKET, publicAudioUrl } from '@/lib/supabase';
+import { db, BUCKET, publicAudioUrl, explain } from '@/lib/supabase';
 import { activeTtsProvider } from '@/lib/env';
 import { speechFor } from '@/lib/tts/cache';
 
@@ -21,7 +21,7 @@ async function saveRow(key: string, path: string, source: 'recorded' | 'uploaded
     { key, audio_path: path, audio_source: source, audio_for: audioFor, updated_at: now },
     { onConflict: 'key' },
   );
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(explain(error.message));
   // recordings are per line; generated audio lives in the shared tts/ cache
   if (prev?.audio_path && prev.audio_path !== path && !String(prev.audio_path).startsWith('tts/')) {
     await client.storage.from(BUCKET).remove([prev.audio_path]);
@@ -66,7 +66,7 @@ export async function POST(req: Request) {
   if (!ext) return Response.json({ error: `סוג קובץ לא נתמך (${type || 'לא ידוע'})` }, { status: 415 });
   const path = `lines/${key.replace(/[^a-zA-Z0-9._-]/g, '_')}/${Date.now()}.${ext}`;
   const up = await client.storage.from(BUCKET).upload(path, await file.arrayBuffer(), { contentType: type, upsert: false });
-  if (up.error) return Response.json({ error: up.error.message }, { status: 500 });
+  if (up.error) return Response.json({ error: explain(up.error.message) }, { status: 500 });
   try {
     const url = await saveRow(key, path, source, content.lines[key].speech);
     return Response.json({ url });
@@ -90,6 +90,6 @@ export async function DELETE(req: Request) {
   const { error } = await client.from('lines')
     .update({ audio_path: null, audio_source: null, audio_for: null, updated_at: new Date().toISOString() })
     .eq('key', key);
-  if (error) return Response.json({ error: error.message }, { status: 500 });
+  if (error) return Response.json({ error: explain(error.message) }, { status: 500 });
   return Response.json({ ok: true });
 }

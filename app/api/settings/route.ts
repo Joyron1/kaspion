@@ -1,6 +1,6 @@
 import { denyUnlessAdmin } from '@/lib/auth';
 import { LEVELS } from '@/lib/content/levels';
-import { db } from '@/lib/supabase';
+import { db, explain } from '@/lib/supabase';
 
 export const dynamic = 'force-dynamic';
 
@@ -32,6 +32,6 @@ export async function PUT(req: Request) {
     return Response.json({ error: 'הגדרה לא מוכרת' }, { status: 400 });
   }
   const { error } = await client.from('settings').upsert({ key, value: clean, updated_at: new Date().toISOString() }, { onConflict: 'key' });
-  if (error) return Response.json({ error: error.message }, { status: 500 });
+  if (error) return Response.json({ error: explain(error.message) }, { status: 500 });
   return Response.json({ ok: true, value: clean });
 }
