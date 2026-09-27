@@ -28,11 +28,19 @@ interface Props {
 }
 
 const GAMES: { id: GameKind; label: string; what: string }[] = [
-  { id: 'shadow', label: 'צללים', what: 'צללים לזהות' },
+  { id: 'bubbles', label: 'בועות', what: 'חברים לשחרר מבועות' },
   { id: 'mom', label: 'אמא וגור', what: 'תינוקות להחזיר לאמא' },
   { id: 'memory', label: 'זיכרון בצדפים', what: 'זוגות למצוא' },
-  { id: 'maze', label: 'מבוך אלמוגים', what: 'מבוכים' },
+  { id: 'food', label: 'אוכל לדרך', what: 'חטיפים לתפוס' },
+  { id: 'pearls', label: 'פנינים של אור', what: 'פנינים לאסוף' },
+  { id: 'shadow', label: 'צללים', what: 'צללים לזהות' },
+  { id: 'puzzle', label: 'פאזל', what: 'חברים להרכיב' },
+  { id: 'song', label: 'שיר הצדפים', what: 'שירים לחזור עליהם' },
+  { id: 'hide', label: 'מחבואים', what: 'חברים למצוא' },
   { id: 'color', label: 'צביעה', what: 'חברים לצבוע' },
+  { id: 'count', label: 'יותר ופחות', what: 'שאלות' },
+  { id: 'maze', label: 'מבוך אלמוגים', what: 'מבוכים' },
+  { id: 'sort', label: 'בתים צבעוניים', what: 'דגים להחזיר הביתה' },
 ];
 
 type Tab = 'play' | 'voice' | 'texts';

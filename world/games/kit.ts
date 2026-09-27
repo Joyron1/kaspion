@@ -16,7 +16,11 @@ export interface Ctx {
   /** how many times the child does the task (parents set this; default 5) */
   count: number;
   say(key: string): Promise<void>;
-  sfx(name: 'tap' | 'pop' | 'shell' | 'bonk' | 'sparkle' | 'join' | 'stage' | 'win' | 'whale' | 'whaleHappy' | 'splash' | 'whoosh' | 'giggle' | 'call'): void;
+  sfx(name: 'tap' | 'pop' | 'shell' | 'bonk' | 'sparkle' | 'join' | 'stage' | 'win' | 'whale' | 'whaleHappy' | 'splash' | 'whoosh' | 'giggle' | 'call' | 'munch'): void;
+  /** play a musical note (Hz) */
+  note(freq: number): void;
+  /** food Kaspion carries for the way (the food station adds to it) */
+  addFood(n: number): void;
   praise(): void;
   /** half the visible width at the play area's depth */
   halfWidth(depth?: number): number;
@@ -41,6 +45,8 @@ export interface Game {
   dispose(): void;
   /** test-only peek at internal state */
   debug?(): unknown;
+  /** 0 = normal light .. 1 = dark sea (the pearls game lights it up) */
+  darkness?(): number;
 }
 
 /** A creature scaled so its length is about `target` world units. */
@@ -115,7 +121,7 @@ export function removeCreature(c: Creature) {
 export function bubbleShell(r: number): THREE.Mesh {
   const m = new THREE.Mesh(
     new THREE.SphereGeometry(r, 32, 20),
-    new THREE.MeshPhysicalMaterial({ color: '#dff8ff', roughness: 0.05, metalness: 0, transparent: true, opacity: 0.28, clearcoat: 1, iridescence: 1, iridescenceIOR: 1.3, depthWrite: false }),
+    new THREE.MeshPhysicalMaterial({ color: '#dff8ff', roughness: 0.05, metalness: 0, transparent: true, opacity: 0.4, clearcoat: 1, iridescence: 1, iridescenceIOR: 1.3, depthWrite: false }),
   );
   m.renderOrder = 3;
   return m;
@@ -154,4 +160,70 @@ export function addHitArea(c: Creature, grow = 1.1): THREE.Mesh {
 export function aimAt(c: Creature): THREE.Vector3 {
   const hit = c.root.userData.hit as THREE.Mesh | undefined;
   return (hit ?? c.root).getWorldPosition(new THREE.Vector3());
+}
+
+/** Where a tap ray meets a flat plane in the game's space (e.g. z = 0 facing the camera). */
+export function onPlane(ctx: Ctx, ray: THREE.Raycaster, normal: THREE.Vector3, point: THREE.Vector3): THREE.Vector3 | null {
+  const wp = ctx.group.localToWorld(point.clone());
+  const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(normal, wp);
+  const hit = new THREE.Vector3();
+  if (!ray.ray.intersectPlane(plane, hit)) return null;
+  return ctx.group.worldToLocal(hit);
+}
+
+/**
+ * Kaspion swims toward the finger (on a flat plane facing the camera), inside a box.
+ * Used by the bubble and food games.
+ */
+export class Steer {
+  target = new THREE.Vector3();
+  active = false;
+  constructor(private ctx: Ctx, private min: THREE.Vector3, private max: THREE.Vector3, public speed = 6) {}
+  tap(e: Tap) {
+    if (e.kind === 'up') { this.active = false; return; }
+    if (e.kind === 'move' && !this.active) return;
+    const p = onPlane(this.ctx, e.ray, new THREE.Vector3(0, 0, 1), new THREE.Vector3(0, 0, 0));
+    if (!p) return;
+    this.target.copy(p).clamp(this.min, this.max);
+    this.active = true;
+  }
+  goTo(p: THREE.Vector3) { this.target.copy(p).clamp(this.min, this.max); this.active = true; }
+  update(dt: number) {
+    const k = this.ctx.kaspion;
+    const p = k.root.position;
+    const d = this.target.clone().sub(p);
+    const len = d.length();
+    if (!this.active || len < 0.08) { k.swim = Math.max(0.15, k.swim - dt * 2); this.active = this.active && len >= 0.08; return; }
+    p.addScaledVector(d.normalize(), Math.min(len, this.speed * dt * Math.min(1, 0.4 + len / 2)));
+    k.swim = Math.min(1, k.swim + dt * 4);
+    const want = d.x >= 0 ? 0 : -Math.PI;
+    k.root.rotation.y += (want - k.root.rotation.y) * Math.min(1, dt * 8);
+    k.root.rotation.z = THREE.MathUtils.clamp(d.y * 0.4, -0.35, 0.35);
+  }
+}
+
+/** Drag objects with a finger on a plane facing the camera at depth z. */
+export class Drag<T extends { root: THREE.Object3D }> {
+  held: T | null = null;
+  private offset = new THREE.Vector3();
+  constructor(private ctx: Ctx, private z: number) {}
+  down(e: Tap, items: T[]): T | null {
+    const hit = pick(e.ray, items);
+    if (!hit) return null;
+    const p = onPlane(this.ctx, e.ray, new THREE.Vector3(0, 0, 1), new THREE.Vector3(0, 0, this.z));
+    this.held = hit;
+    this.offset.copy(hit.root.position).sub(p ?? hit.root.position);
+    return hit;
+  }
+  move(e: Tap) {
+    if (!this.held) return;
+    const p = onPlane(this.ctx, e.ray, new THREE.Vector3(0, 0, 1), new THREE.Vector3(0, 0, this.z));
+    if (p) this.held.root.position.copy(p.add(this.offset)).setZ(this.z + 0.6);
+  }
+  up(): T | null { const h = this.held; this.held = null; return h; }
+}
+
+/** Every item within reach of Kaspion's mouth. */
+export function near(ctx: Ctx, p: THREE.Vector3, r: number) {
+  return ctx.kaspion.root.position.distanceTo(p) < r;
 }

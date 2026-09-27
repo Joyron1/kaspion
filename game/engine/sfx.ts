@@ -72,7 +72,14 @@ function tone(f1: number, f2: number, dur: number, type: OscillatorType = 'sine'
   o.start(t0); o.stop(t0 + dur + 0.05);
 }
 
+/** One soft musical note (shell song). */
+export function note(freq: number, dur = 0.45) {
+  tone(freq, freq, dur, 'sine', 0.2);
+  tone(freq * 2, freq * 2, dur * 0.7, 'triangle', 0.05);
+}
+
 export const sfx = {
+  munch() { [520, 380, 520].forEach((f, i) => tone(f, f * 0.8, 0.07, 'square', 0.06, i * 0.09)); },
   tap() { tone(900, 700, 0.06, 'sine', 0.05); },
   pop() { tone(420, 1300, 0.14, 'sine', 0.22); },
   shell() { tone(700, 1400, 0.12, 'sine', 0.16); tone(1050, 2100, 0.14, 'sine', 0.1, 0.08); },

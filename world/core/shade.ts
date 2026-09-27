@@ -6,6 +6,8 @@ import * as THREE from 'three';
 
 /** One clock shared by every animated material. */
 export const TIME = { value: 0 };
+/** how much of the surface light reaches down here (the dark pearls station lowers it) */
+export const SURFACE = { value: 1 };
 
 export interface Wave {
   /** axis the body bends along: 'z' for fish (side to side), 'y' for whales (up and down) */
@@ -53,6 +55,7 @@ export function dress<T extends THREE.MeshStandardMaterial>(mat: T, look: Look):
   const sway = look.sway ?? 0;
   const u = {
     uTime: TIME,
+    uSurface: SURFACE,
     uRim: { value: rim },
     uRimColor: { value: new THREE.Color(look.rimColor ?? '#bff3ff') },
     uCaustic: { value: caustics },
@@ -102,7 +105,7 @@ ${sway ? `{
 }`);
     shader.fragmentShader = shader.fragmentShader
       .replace('#include <common>', `#include <common>
-uniform float uTime; uniform float uRim; uniform vec3 uRimColor; uniform float uCaustic;
+uniform float uTime; uniform float uSurface; uniform float uRim; uniform vec3 uRimColor; uniform float uCaustic;
 varying vec3 vWPos; varying vec3 vWNorm;
 ${caustics > 0 ? CAUSTIC_GLSL : ''}`)
       .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
@@ -114,7 +117,7 @@ ${rim > 0 ? `{
   float up = clamp(vWNorm.y * 0.8 + 0.35, 0.0, 1.0);
   float depthFade = clamp(1.0 - (-vWPos.y) * 0.02, 0.35, 1.0);
   float c = causticAt(vWPos.xz, uTime) + 0.6 * causticAt(vWPos.xz * 1.7 + 3.0, uTime * 1.3);
-  outgoingLight += diffuseColor.rgb * vec3(0.75, 0.95, 1.0) * c * up * depthFade * uCaustic;
+  outgoingLight += diffuseColor.rgb * vec3(0.75, 0.95, 1.0) * c * up * depthFade * uCaustic * uSurface;
 }` : ''}
 #include <opaque_fragment>`);
   };

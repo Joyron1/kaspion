@@ -13,6 +13,8 @@
   padding: 6px 14px 8px; display: flex; flex-direction: column; gap: 5px; align-items: center;
 }
 .title { font-size: 18px; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.prompt { font-size: 15px; line-height: 1.3; color: var(--hint); text-align: center; max-width: 100%; }
+.food { margin-inline-start: 8px; font-family: var(--body); font-size: 14px; background: #ffe3ec; border: 2px solid var(--ink); border-radius: 99px; padding: 0 8px; }
 .track { list-style: none; margin: 0; padding: 0; display: flex; gap: 4px; align-items: center; }
 .stop { width: 11px; height: 11px; border-radius: 50%; border: 2px solid var(--ink); background: #fff; transition: transform .3s; }
 .stopDone { background: var(--sun); }

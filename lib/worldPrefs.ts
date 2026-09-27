@@ -19,7 +19,7 @@ export const COUNT_MIN = 1;
 export const COUNT_MAX = 10;
 
 export const DEFAULT_PREFS: WorldPrefs = {
-  counts: { shadow: 5, mom: 5, memory: 5, maze: 5, color: 5 },
+  counts: { bubbles: 5, mom: 5, memory: 5, food: 5, pearls: 5, shadow: 5, puzzle: 5, song: 5, hide: 5, color: 5, count: 5, maze: 5, sort: 5 },
   voice: 'auto',
   rate: 0.9,
 };

@@ -2,7 +2,7 @@
 // surface, drifting "marine snow", and gardens of coral, kelp, rocks and anemones.
 
 import * as THREE from 'three';
-import { clay, dress, TIME } from '../core/shade';
+import { clay, dress, SURFACE, TIME } from '../core/shade';
 import { rng, rockGeo, sweep, V } from '../core/geo';
 import { shaft, softDot } from '../core/tex';
 import type { Stage } from '../core/stage';
@@ -38,6 +38,8 @@ export class Ocean {
   readonly now: Mood = mood('blue');
   /** games seen from above dim the sun a little so colors don't wash out */
   sunScale = 1;
+  /** 0 = normal .. 1 = very dark (the pearls game) */
+  dim = 0;
   private floorMat: THREE.MeshStandardMaterial;
   /** flat spots on the sea floor (mission areas) */
   private flats: { x: number; z: number; r: number }[] = [];
@@ -158,12 +160,16 @@ export class Ocean {
   private tick(dt: number, t: number) {
     const cam = this.stage.camera.position;
     this.sky.position.copy(cam);
-    this.skyU.uTop.value.copy(this.now.top);
-    this.skyU.uDeep.value.copy(this.now.deep);
-    this.stage.fog.color.copy(this.now.deep).lerp(this.now.top, 0.25);
-    this.stage.sun.intensity = this.now.sun * this.sunScale;
+    const lit = 1 - this.dim * 0.82;
+    this.skyU.uTop.value.copy(this.now.top).multiplyScalar(lit);
+    this.skyU.uDeep.value.copy(this.now.deep).multiplyScalar(lit);
+    this.stage.fog.color.copy(this.now.deep).lerp(this.now.top, 0.25).multiplyScalar(lit);
+    this.stage.sun.intensity = this.now.sun * this.sunScale * (1 - this.dim * 0.9);
+    this.stage.hemi.intensity = 1.35 * (1 - this.dim * 0.72);
+    this.stage.scene.environmentIntensity = 0.55 * (1 - this.dim * 0.85);
+    SURFACE.value = 1 - this.dim * 0.92;
     this.stage.hemi.color.copy(this.now.top).lerp(new THREE.Color('#ffffff'), 0.4);
-    this.shaftMat.opacity = this.now.shafts;
+    this.shaftMat.opacity = this.now.shafts * (1 - this.dim);
     const camYaw = Math.atan2(this.stage.camera.position.x - this.stage.focus.x, this.stage.camera.position.z - this.stage.focus.z);
     for (const m of this.shafts) {
       const u = m.userData as { ox: number; oz: number; ph: number; tilt: number };

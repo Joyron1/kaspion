@@ -12,6 +12,14 @@ import { momGame } from './games/mom';
 import { memoryGame } from './games/memory';
 import { mazeGame } from './games/maze';
 import { colorGame } from './games/color';
+import { bubblesGame } from './games/bubbles';
+import { foodGame } from './games/food';
+import { pearlsGame } from './games/pearls';
+import { puzzleGame } from './games/puzzle';
+import { songGame } from './games/song';
+import { hideGame } from './games/hide';
+import { countGame } from './games/count';
+import { sortGame } from './games/sort';
 import { STATIONS, type GameKind, type StationDef } from '@/lib/content/world';
 
 export type Phase = 'ready' | 'travel' | 'arrive' | 'play' | 'won' | 'end';
@@ -23,6 +31,10 @@ export interface WorldState {
   goal: number;
   /** the story page being read while swimming */
   page: string | null;
+  /** snacks Kaspion carries for the way */
+  food: number;
+  /** the instruction the game just gave (shown on screen too) */
+  prompt: string | null;
 }
 
 export interface WorldHooks {
@@ -33,14 +45,22 @@ export interface WorldHooks {
   onState(s: WorldState): void;
   onStationDone(index: number): void;
   estimate(key: string): number;
+  note(freq: number): void;
+  /** snacks saved on this device from an earlier visit */
+  food(): number;
+  onFood(n: number): void;
   bot: boolean;
   /** light rendering for tests on software graphics (no bot) */
   lite?: boolean;
 }
 
 const GAMES: Record<GameKind, (c: Ctx) => Game> = {
-  shadow: shadowGame, mom: momGame, memory: memoryGame, maze: mazeGame, color: colorGame,
+  bubbles: bubblesGame, mom: momGame, memory: memoryGame, food: foodGame, pearls: pearlsGame,
+  shadow: shadowGame, puzzle: puzzleGame, song: songGame, hide: hideGame, color: colorGame,
+  count: countGame, maze: mazeGame, sort: sortGame,
 };
+/** stations after this one feed Kaspion from the snacks gathered there */
+const FOOD_AT = STATIONS.findIndex(s => s.game === 'food');
 
 const GAP = 62;
 export const stationPos = (i: number) => new THREE.Vector3(Math.sin(i * 0.95) * 11, 0, -i * GAP);
@@ -90,7 +110,7 @@ export class World {
   private localAt = -1;
   private schoolAngle = 0;
   private schoolAway = 0;
-  private state: WorldState = { phase: 'ready', station: 0, got: 0, goal: 0, page: null };
+  private state: WorldState = { phase: 'ready', station: 0, got: 0, goal: 0, page: null, food: 0, prompt: null };
 
   constructor(canvas: HTMLCanvasElement, private hooks: WorldHooks) {
     const lite = hooks.bot || Boolean(hooks.lite);
@@ -139,6 +159,7 @@ export class World {
     this.goalLook.copy(this.camLook);
     this.stage.camera.position.copy(this.camPos);
 
+    this.food = Math.max(0, hooks.food());
     this.stage.onTick((dt, t) => this.tick(dt, t));
     this.stage.onTap(e => {
       if (this.phase === 'play' && this.game) {
@@ -173,7 +194,7 @@ export class World {
 
   private emit(extra: Partial<WorldState> = {}) {
     const p = this.game?.progress() ?? { got: 0, goal: 0 };
-    this.state = { phase: this.phase, station: this.index, got: p.got, goal: p.goal, page: null, ...extra };
+    this.state = { phase: this.phase, station: this.index, got: p.got, goal: p.goal, page: null, food: this.food, prompt: this.phase === 'play' ? this.prompt : null, ...extra };
     this.hooks.onState(this.state);
   }
 
@@ -196,6 +217,19 @@ export class World {
   skipTravel() { if (this.phase === 'travel') this.travelT = this.travelDur; }
 
   // ------------------------------------------------------------ station
+  private eat(say: boolean) {
+    this.food--;
+    this.ateOnce = true;
+    this.hooks.onFood(this.food);
+    const at = this.kaspion.root.getWorldPosition(new THREE.Vector3());
+    this.fx.add('heart', at.clone().add(new THREE.Vector3(0, 0.9, 0)), { v: new THREE.Vector3(0, 1, 0), life: 1.6, size: 0.6, rise: 0.4 });
+    this.fx.burst(at, 'star', 8, 2.5, 0.4);
+    this.hooks.sfx('munch');
+    this.kaspion.cheer();
+    if (say && !this.hooks.bot) this.reading = this.reading.then(() => this.hooks.say('world.food.eat'));
+    this.emit();
+  }
+
   private async arrive() {
     this.phase = 'arrive';
     this.emit();
@@ -213,8 +247,15 @@ export class World {
       kaspion: this.kaspion,
       level: s.level,
       count: this.hooks.counts()[s.game] ?? 5,
-      say: key => (this.hooks.bot ? Promise.resolve() : this.hooks.say(key)),
+      say: key => {
+        // the game's instruction also shows on screen, for a parent reading along or a muted phone
+        this.prompt = key;
+        this.emit();
+        return this.hooks.bot ? Promise.resolve() : this.hooks.say(key);
+      },
       sfx: n => this.hooks.sfx(n),
+      note: f => this.hooks.note(f),
+      addFood: n => { this.food += n; this.hooks.onFood(this.food); this.emit(); },
       praise: () => {
         const n = 1 + Math.floor(Math.random() * 5);
         if (!this.hooks.bot) void this.hooks.say(`ui.praise.${n}`);
@@ -229,6 +270,9 @@ export class World {
     };
     this.kaspion.cheer();
     this.hooks.sfx('stage');
+    this.prompt = null;
+    // after the food station, Kaspion eats a snack from his basket at every stop
+    if (FOOD_AT >= 0 && this.index > FOOD_AT && this.food > 0) this.eat(!this.ateOnce);
     // let the story page finish (but don't wait forever)
     if (!this.hooks.bot) await Promise.race([this.reading, new Promise(r => setTimeout(r, 6000))]);
     if (this.group !== g) return;
@@ -312,7 +356,7 @@ export class World {
     }
     if (s.page === 'p03') {
       const kinds: Kind[] = ['fish', 'seahorse', 'fish', 'turtle', 'seahorse'];
-      kinds.forEach((k, n) => add(makeCreature(k), p.clone().add(new THREE.Vector3(-14 + n * 7, 4 + (n % 2) * 2, -13))));
+      kinds.forEach((k, n) => add(makeCreature(k), p.clone().add(new THREE.Vector3(-14 + n * 7, 5 + (n % 2) * 2, -22))));
     }
     if (s.page === 'p05' || s.page === 'p06') {
       const w = add(makeWhale({ role: 'baby' }), p.clone().add(new THREE.Vector3(3, 3.2, -15)));
@@ -323,18 +367,26 @@ export class World {
       for (let k = 0; k < 6; k++) add(makeCreature('jelly'), p.clone().add(new THREE.Vector3(-15 + k * 6, 5 + (k % 3) * 1.5, -12 - (k % 2) * 4)));
     }
     if (s.page === 'p13' || s.page === 'p03') {
-      for (let k = 0; k < 3; k++) add(makeCreature((['crab', 'starfish', 'octopus'] as Kind[])[k]), p.clone().add(new THREE.Vector3(-13 + k * 13, 0.2, -12)));
+      for (let k = 0; k < 3; k++) add(makeCreature((['crab', 'starfish', 'octopus'] as Kind[])[k]), p.clone().add(new THREE.Vector3(-13 + k * 13, 0.2, -22)));
     }
   }
 
   // ------------------------------------------------------------ frame
   private frames = 0;
+  private food = 0;
+  private ateOnce = false;
+  private prompt: string | null = null;
   private reading: Promise<void> = Promise.resolve();
   private tick(dt: number, t: number) {
     this.frames++;
     const k = this.kaspion;
     const here = this.phase === 'ready' ? 0 : this.index;
     this.ocean.follow(mood(STATIONS[here].mood), dt);
+    // the pearls station is dark until its pearls light it up; it darkens as we swim there
+    const st = STATIONS[here];
+    let dark = this.game?.darkness?.() ?? 0;
+    if (!this.game && st.game === 'pearls' && this.phase !== 'ready') dark = this.phase === 'travel' ? Math.min(1, this.travelT / this.travelDur) : 1;
+    this.ocean.dim += (dark - this.ocean.dim) * Math.min(1, dt * 1.5);
     const topDown = this.game && this.game.camera.pos.y > 9;
     this.ocean.sunScale += ((topDown ? 0.62 : 1) - this.ocean.sunScale) * Math.min(1, dt * 2);
     const near = this.phase === 'travel' && this.travelT / this.travelDur < 0.5 && this.index > 0 ? this.index - 1 : here;

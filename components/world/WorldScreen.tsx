@@ -6,8 +6,8 @@ import type { ContentBundle, Line, LineDef } from '@/lib/content/types';
 import { STATIONS } from '@/lib/content/world';
 import { STORY_PAGES } from '@/lib/content/story';
 import { Narrator, estimateSeconds } from '@/game/engine/narrator';
-import { sfx, setSfxMuted, startAmbience, stopAmbience, unlockAudio } from '@/game/engine/sfx';
-import { markStationDone, resetWorld, useMuted, useWorldProgress, writeMuted } from '@/lib/progress';
+import { note, sfx, setSfxMuted, startAmbience, stopAmbience, unlockAudio } from '@/game/engine/sfx';
+import { markStationDone, readFood, resetWorld, writeFood, useMuted, useWorldProgress, writeMuted } from '@/lib/progress';
 import { useWorldPrefs, type WorldPrefs } from '@/lib/worldPrefs';
 import WorldSettings, { type ParentStatus } from './WorldSettings';
 import type { World, WorldState } from '@/world/World';
@@ -18,7 +18,7 @@ export default function WorldScreen({ content, defs, parent }: { content: Conten
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const worldRef = useRef<World | null>(null);
   const narrator = useMemo(() => new Narrator(content.lines, { settings: content.narrator, cloud: content.cloudVoice }), [content]);
-  const [state, setState] = useState<WorldState>({ phase: 'ready', station: 0, got: 0, goal: 0, page: null });
+  const [state, setState] = useState<WorldState>({ phase: 'ready', station: 0, got: 0, goal: 0, page: null, food: 0, prompt: null });
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
   const muted = useMuted();
@@ -56,6 +56,9 @@ export default function WorldScreen({ content, defs, parent }: { content: Conten
           onStationDone: i => markStationDone(i),
           estimate: key => estimateSeconds(narrator.line(key)?.speech ?? '', prefsRef.current.rate),
           counts: () => prefsRef.current.counts,
+          note: f => note(f),
+          food: () => readFood(),
+          onFood: n => writeFood(n),
           bot,
           lite,
         });
@@ -104,12 +107,16 @@ export default function WorldScreen({ content, defs, parent }: { content: Conten
         <div className={s.top}>
           <Link href="/" className="iconbtn" aria-label="לדף הבית" onClick={() => narrator.stop()}><HomeIcon /></Link>
           <div className={s.card}>
-            <div className={`${s.title} display`}>{t(`world.${station.id}.title`)}</div>
+            <div className={`${s.title} display`}>
+              {t(`world.${station.id}.title`)}
+              {state.food > 0 && <span className={s.food} aria-label={`${state.food} חטיפים לדרך`}>🦐 {state.food}</span>}
+            </div>
             <ol className={s.track} aria-label={`תחנה ${state.station + 1} מתוך ${STATIONS.length}`}>
               {STATIONS.map((st, i) => (
                 <li key={st.id} className={`${s.stop} ${done.includes(i) ? s.stopDone : ''} ${i === state.station ? s.stopNow : ''}`} />
               ))}
             </ol>
+            {state.phase === 'play' && state.prompt && <div className={s.prompt}>{t(state.prompt)}</div>}
             {state.phase === 'play' && state.goal > 0 && (
               <div className={s.prog} aria-label={`${state.got} מתוך ${state.goal}`}><i style={{ width: `${Math.round(Math.min(1, state.got / state.goal) * 100)}%` }} /></div>
             )}

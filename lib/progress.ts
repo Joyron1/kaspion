@@ -65,7 +65,12 @@ export function markStationDone(i: number) {
   const done = readWorld();
   if (!done.includes(i)) write(WORLD, JSON.stringify([...done, i].sort((a, b) => a - b)));
 }
-export function resetWorld() { write(WORLD, '[]'); }
+export function resetWorld() { write(WORLD, '[]'); write(FOOD, '0'); }
+
+// snacks Kaspion gathered for the way (the food station fills it, later stations eat from it)
+const FOOD = 'kaspion-world-food';
+export function readFood(): number { const n = Number(read(FOOD)); return Number.isFinite(n) ? Math.max(0, n) : 0; }
+export function writeFood(n: number) { write(FOOD, String(Math.max(0, Math.round(n)))); }
 
 /** Finished journey stations, re-rendering when they change. Empty on the server. */
 export function useWorldProgress(): number[] {
