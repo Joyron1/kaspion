@@ -1,10 +1,10 @@
 // Sprite particles: sparkle bursts, hearts, stars, and bubbles.
 
 import * as THREE from 'three';
-import { bubble, heart, sparkle, star } from './tex';
+import { bubble, heart, musicNote, sparkle, star } from './tex';
 
-type Tex = 'sparkle' | 'star' | 'heart' | 'bubble';
-const TEX: Record<Tex, () => THREE.Texture> = { sparkle, star, heart, bubble };
+type Tex = 'sparkle' | 'star' | 'heart' | 'bubble' | 'note';
+const TEX: Record<Tex, () => THREE.Texture> = { sparkle, star, heart, bubble, note: musicNote };
 
 interface P {
   s: THREE.Sprite;

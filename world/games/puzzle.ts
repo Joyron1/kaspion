@@ -110,6 +110,15 @@ export function puzzleGame(ctx: Ctx): Game {
     });
   };
 
+  // where a piece's visible quarter is, and where it belongs, on the screen
+  const quarterNow = (p: Piece) => p.root.localToWorld(p.offset.clone().divideScalar(p.root.scale.x));
+  const quarterHome = (p: Piece) => ctx.group.localToWorld(target.clone().add(new THREE.Vector3(p.offset.x, p.offset.y, 0)));
+  const onScreenGap = (p: Piece) => {
+    const a = ctx.stage.toScreen(quarterNow(p)), b = ctx.stage.toScreen(quarterHome(p));
+    const c = ctx.stage.canvas;
+    return Math.hypot(a.x - b.x, a.y - b.y) / Math.min(c.clientWidth, c.clientHeight);
+  };
+
   const place = (p: Piece) => {
     p.placed = true;
     placedTotal++;
@@ -162,13 +171,16 @@ export function puzzleGame(ctx: Ctx): Game {
       if (e.kind === 'down') {
         const p = drag.down(e, pieces.filter(x => !x.placed));
         if (p) { dragging = p; ctx.sfx('tap'); }
-      } else if (e.kind === 'move') drag.move(e);
-      else {
+      } else if (e.kind === 'move') {
+        drag.move(e);
+        // a magnet: once the piece looks close to its place, it clicks in by itself
+        if (dragging && onScreenGap(dragging) < 0.09) { const p = dragging; drag.up(); dragging = null; place(p); }
+      } else {
         const p = drag.up();
         dragging = null;
         if (!p) return;
-        // close enough to its place on the shadow? it clicks in
-        if (p.root.position.distanceTo(target) < 1.6) place(p);
+        // dropped near its place (as the child sees it)? it clicks in; otherwise it floats back
+        if (onScreenGap(p) < 0.2) place(p);
         else ctx.sfx('bonk');
       }
     },
@@ -179,7 +191,10 @@ export function puzzleGame(ctx: Ctx): Game {
       return p ? p.root.localToWorld(p.offset.clone().divideScalar(p.root.scale.x)).add(new THREE.Vector3(0, 0.8, 0)) : null;
     },
     auto() { const p = pieces.find(x => !x.placed); if (p && !whole) place(p); },
-    debug: () => ({ round, placedTotal, pieces: pieces.map(p => p.placed) }),
+    debug: () => ({
+      round, placedTotal,
+      pieces: pieces.map(p => ({ placed: p.placed, at: ctx.stage.toScreen(quarterNow(p)), to: ctx.stage.toScreen(quarterHome(p)) })),
+    }),
     dispose() {
       clear();
       if (whole) removeCreature(whole);

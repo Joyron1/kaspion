@@ -97,3 +97,14 @@ export const blob = () => make('blob', 64, (c, s) => {
   g.addColorStop(0, 'rgba(0,20,50,0.55)'); g.addColorStop(1, 'rgba(0,20,50,0)');
   c.fillStyle = g; c.fillRect(0, 0, s, s);
 });
+
+/** a music note ♪ */
+export const musicNote = () => make('note', 128, (c, s) => {
+  c.fillStyle = '#ffffff';
+  c.strokeStyle = '#15223a';
+  c.lineWidth = 6;
+  c.beginPath(); c.ellipse(s * 0.38, s * 0.74, s * 0.17, s * 0.12, -0.4, 0, Math.PI * 2); c.fill(); c.stroke();
+  c.fillRect(s * 0.5, s * 0.16, s * 0.07, s * 0.58);
+  c.strokeRect(s * 0.5, s * 0.16, s * 0.07, s * 0.58);
+  c.beginPath(); c.moveTo(s * 0.57, s * 0.16); c.quadraticCurveTo(s * 0.8, s * 0.26, s * 0.72, s * 0.46); c.lineTo(s * 0.66, s * 0.42); c.quadraticCurveTo(s * 0.7, s * 0.3, s * 0.57, s * 0.3); c.closePath(); c.fill(); c.stroke();
+});
